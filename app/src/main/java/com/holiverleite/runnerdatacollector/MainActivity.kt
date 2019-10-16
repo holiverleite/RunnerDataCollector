@@ -5,8 +5,10 @@ import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.os.CountDownTimer
 import android.os.SystemClock
+import android.widget.Button
 import android.widget.Chronometer
 import android.widget.Toast
+import androidx.core.view.isGone
 import androidx.core.view.isVisible
 import com.google.firebase.database.DatabaseReference
 import com.google.firebase.database.FirebaseDatabase
@@ -34,14 +36,10 @@ class MainActivity : AppCompatActivity() {
         this.myRef = database.getReference("command")
 
         this.device_master.setOnClickListener {
-            this.disableAllButtons()
+            this.disableButtons(this.device_master)
             this.device_master.setBackgroundColor(Color.GREEN)
             this.start_button.isEnabled = true
             this.start_button.isVisible = true
-
-//            Toast.makeText(applicationContext, timer.toString(), Toast.LENGTH_LONG).show()
-
-            // Call to set as a MASTER
         }
 
         this.start_button.setOnClickListener {
@@ -57,66 +55,33 @@ class MainActivity : AppCompatActivity() {
         }
 
         this.device1.setOnClickListener {
-            this.disableAllButtons()
+            this.disableButtons(this.device1)
             this.device1.setBackgroundColor(Color.GREEN)
             this.chronometer.isVisible = true
-
-            // Call to set as a MASTER
         }
 
         this.device2.setOnClickListener {
-            this.disableAllButtons()
+            this.disableButtons(this.device2)
             this.device2.setBackgroundColor(Color.GREEN)
             this.chronometer.isVisible = true
-
-            // Call to set as a MASTER
         }
 
         this.device3.setOnClickListener {
-            this.disableAllButtons()
+            this.disableButtons(this.device3)
             this.device3.setBackgroundColor(Color.GREEN)
             this.chronometer.isVisible = true
-
-            // Call to set as a MASTER
         }
 
         this.device4.setOnClickListener {
-            this.disableAllButtons()
+            this.disableButtons(this.device4)
             this.device4.setBackgroundColor(Color.GREEN)
             this.chronometer.isVisible = true
-
-            // Call to set as a MASTER
-        }
-
-        this.device5.setOnClickListener {
-            this.disableAllButtons()
-            this.device5.setBackgroundColor(Color.GREEN)
-            this.chronometer.isVisible = true
-
-            // Call to set as a MASTER
-        }
-
-        this.device6.setOnClickListener {
-            this.disableAllButtons()
-            this.device6.setBackgroundColor(Color.GREEN)
-            this.chronometer.isVisible = true
-
-            // Call to set as a MASTER
-        }
-
-        this.device7.setOnClickListener {
-            this.disableAllButtons()
-            this.device7.setBackgroundColor(Color.GREEN)
-            this.chronometer.isVisible = true
-
-            // Call to set as a MASTER
         }
 
         // Read from the database
         myRef?.addValueEventListener(object : ValueEventListener {
             override fun onDataChange(dataSnapshot: DataSnapshot) {
-                // This method is called once with the initial value and again
-                // whenever data at this location is updated.
+
                 val value = dataSnapshot.getValue(String::class.java)
 
                 if (value == "1") {
@@ -126,7 +91,6 @@ class MainActivity : AppCompatActivity() {
                     timeWhenStopped = chronometer.base - SystemClock.elapsedRealtime()
                     chronometer.stop()
                 }
-//                Toast.makeText(applicationContext, value, Toast.LENGTH_LONG).show()
             }
 
             override fun onCancelled(error: DatabaseError) {
@@ -136,14 +100,18 @@ class MainActivity : AppCompatActivity() {
         })
     }
 
-    fun disableAllButtons() {
+    fun disableButtons(button: Button) {
+        this.device1.isGone = true
         this.device1.isEnabled = false
+        this.device2.isGone = true
         this.device2.isEnabled = false
+        this.device3.isGone = true
         this.device3.isEnabled = false
+        this.device4.isGone = true
         this.device4.isEnabled = false
-        this.device5.isEnabled = false
-        this.device6.isEnabled = false
-        this.device7.isEnabled = false
+        this.device_master.isGone = true
         this.device_master.isEnabled = false
+
+        button.isGone = false
     }
 }
