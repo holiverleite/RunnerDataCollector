@@ -1,0 +1,40 @@
+{
+  "project_info": {
+    "project_number": "556062340745",
+    "firebase_url": "https://runnerdatacollector.firebaseio.com",
+    "project_id": "runnerdatacollector",
+    "storage_bucket": "runnerdatacollector.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:556062340745:android:d22f7d44927e57d673b858",
+        "android_client_info": {
+          "package_name": "com.holiverleite.runnerdatacollector"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "556062340745-btikrqi83a5o1r56ck5b0dr1mv6eurmn.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCQ_-UC6ynGe--tZZvmg8ckQKuS2cljSek"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "556062340745-btikrqi83a5o1r56ck5b0dr1mv6eurmn.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
