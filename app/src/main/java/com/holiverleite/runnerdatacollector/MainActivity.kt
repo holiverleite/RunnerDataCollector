@@ -19,10 +19,12 @@ import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.ValueEventListener
 import kotlinx.android.synthetic.main.activity_main.*
+import java.sql.Timestamp
 
 
 class MainActivity : AppCompatActivity(), SensorEventListener {
     private var myRef: DatabaseReference? = null
+    private var deviceReference: DatabaseReference? = null
     private var timeWhenStopped: Long = 0
     private var currentState: String = "0"
 
@@ -30,18 +32,14 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     private var mAccelerometer: Sensor? = null
     private var mGyroscope: Sensor? = null
 
+    data class SensorData(val timestamp: String, val gx: String, val gy: String, val gz: String, val ax: String, val ay: String, val az: String)
+    var dataCollected: List<SensorData> = mutableListOf()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-
-        this.mSensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
-        this.mAccelerometer = mSensorManager!!.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
-        this.mGyroscope = mSensorManager!!.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
-
-        this.mSensorManager?.registerListener(this,mAccelerometer,SensorManager.SENSOR_DELAY_NORMAL)
-        this.mSensorManager?.registerListener(this,mGyroscope,SensorManager.SENSOR_DELAY_NORMAL)
-
+        this.setAllSensors()
 
         val database = FirebaseDatabase.getInstance()
         this.myRef = database.getReference("command")
@@ -66,6 +64,9 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         }
 
         this.device1.setOnClickListener {
+            this.deviceReference = database.getReference("device1")
+
+            this.deviceReference?.child("device1")?.setValue("aaaa")
             this.disableButtons(this.device1)
             this.showSensorParameters()
             this.device1.setBackgroundColor(Color.GREEN)
@@ -73,6 +74,8 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         }
 
         this.device2.setOnClickListener {
+            this.deviceReference = database.getReference("device2")
+            this.deviceReference?.setValue("device2")
             this.disableButtons(this.device2)
             this.showSensorParameters()
             this.device2.setBackgroundColor(Color.GREEN)
@@ -102,9 +105,13 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                 if (value == "1") {
                     chronometer.base = SystemClock.elapsedRealtime() + timeWhenStopped
                     chronometer.start()
+
+                    enableSensorListeners()
                 } else {
                     timeWhenStopped = chronometer.base - SystemClock.elapsedRealtime()
                     chronometer.stop()
+
+                    disableSensorListeners()
                 }
             }
 
@@ -113,6 +120,16 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                 Toast.makeText(applicationContext, error.toException().toString(), Toast.LENGTH_LONG).show()
             }
         })
+    }
+
+    fun enableSensorListeners() {
+        this.mSensorManager?.registerListener(this,mAccelerometer,SensorManager.SENSOR_DELAY_NORMAL)
+        this.mSensorManager?.registerListener(this,mGyroscope,SensorManager.SENSOR_DELAY_NORMAL)
+    }
+
+    fun disableSensorListeners() {
+        this.mSensorManager?.unregisterListener(this,this.mGyroscope)
+        this.mSensorManager?.unregisterListener(this,this.mAccelerometer)
     }
 
     fun disableButtons(button: Button) {
@@ -139,9 +156,16 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         this.aceleZLabel.isVisible = true
     }
 
+    fun setAllSensors() {
+        this.mSensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
+        this.mAccelerometer = mSensorManager!!.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
+        this.mGyroscope = mSensorManager!!.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
+    }
+
 
     // SENSOR IMPLEMENTATIOS
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
+
     }
 
     override fun onSensorChanged(event: SensorEvent?) {
