@@ -19,21 +19,28 @@ import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.ValueEventListener
 import kotlinx.android.synthetic.main.activity_main.*
-import java.sql.Timestamp
-
 
 class MainActivity : AppCompatActivity(), SensorEventListener {
-    private var myRef: DatabaseReference? = null
+
+    private var commonReference: DatabaseReference? = null
     private var deviceReference: DatabaseReference? = null
-    private var timeWhenStopped: Long = 0
+
     private var currentState: String = "0"
 
     private var mSensorManager: SensorManager? = null
     private var mAccelerometer: Sensor? = null
     private var mGyroscope: Sensor? = null
 
-    data class SensorData(val timestamp: String, val gx: String, val gy: String, val gz: String, val ax: String, val ay: String, val az: String)
-    var dataCollected: List<SensorData> = mutableListOf()
+    data class SensorData(val timestamp: String,
+                          val gx: String,
+                          val gy: String,
+                          val gz: String,
+                          val ax: String,
+                          val ay: String,
+                          val az: String
+    )
+
+    var dataCollected: MutableList<SensorData> = mutableListOf()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -42,76 +49,89 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         this.setAllSensors()
 
         val database = FirebaseDatabase.getInstance()
-        this.myRef = database.getReference("command")
+        this.commonReference = database.getReference("command")
 
         this.device_master.setOnClickListener {
+            this.deviceReference = database.getReference("deviceMaster")
+
             this.disableButtons(this.device_master)
+            this.showSensorParameters()
             this.device_master.setBackgroundColor(Color.GREEN)
             this.start_button.isEnabled = true
             this.start_button.isVisible = true
         }
 
+        this.generateXLSFile.setOnClickListener {
+            // Gerar XLS com os dados do Firebase
+        }
+
         this.start_button.setOnClickListener {
             if (this.currentState == "0") {
                 this.currentState = "1"
-                this.myRef?.setValue("1")
+                this.commonReference?.setValue("1")
                 start_button.text = "STOP"
+                this.generateXLSFile.isVisible = false
             }else {
                 this.currentState = "0"
-                this.myRef?.setValue("0")
-                start_button.text = "START"
+                this.commonReference?.setValue("0")
+                start_button.text = "RESTART"
+                this.generateXLSFile.isVisible = true
             }
         }
 
         this.device1.setOnClickListener {
             this.deviceReference = database.getReference("device1")
 
-            this.deviceReference?.child("device1")?.setValue("aaaa")
             this.disableButtons(this.device1)
             this.showSensorParameters()
             this.device1.setBackgroundColor(Color.GREEN)
-            this.chronometer.isVisible = true
         }
 
         this.device2.setOnClickListener {
             this.deviceReference = database.getReference("device2")
-            this.deviceReference?.setValue("device2")
+
             this.disableButtons(this.device2)
             this.showSensorParameters()
             this.device2.setBackgroundColor(Color.GREEN)
-            this.chronometer.isVisible = true
         }
 
         this.device3.setOnClickListener {
+            this.deviceReference = database.getReference("device3")
+
             this.disableButtons(this.device3)
             this.showSensorParameters()
             this.device3.setBackgroundColor(Color.GREEN)
-            this.chronometer.isVisible = true
         }
 
         this.device4.setOnClickListener {
+            this.deviceReference = database.getReference("device4")
+
             this.disableButtons(this.device4)
             this.showSensorParameters()
             this.device4.setBackgroundColor(Color.GREEN)
-            this.chronometer.isVisible = true
         }
 
-        // Read from the database
-        myRef?.addValueEventListener(object : ValueEventListener {
+        // Common reference - All devices listen to this database reference
+        commonReference?.addValueEventListener(object : ValueEventListener {
             override fun onDataChange(dataSnapshot: DataSnapshot) {
 
                 val value = dataSnapshot.getValue(String::class.java)
 
                 if (value == "1") {
-                    chronometer.base = SystemClock.elapsedRealtime() + timeWhenStopped
+                    // Deleta dados do device do Firebase
+                    deviceReference?.removeValue()
+
+                    chronometer.base = SystemClock.elapsedRealtime()
+
                     chronometer.start()
 
                     enableSensorListeners()
                 } else {
-                    timeWhenStopped = chronometer.base - SystemClock.elapsedRealtime()
                     chronometer.stop()
 
                     disableSensorListeners()
+
+                    saveDataInDataBase()
                 }
             }
 
@@ -132,6 +152,20 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         this.mSensorManager?.unregisterListener(this,this.mAccelerometer)
     }
 
+    fun saveDataInDataBase() {
+        var index = 0
+        this.dataCollected.forEach {
+            this.deviceReference?.child(index.toString())?.child("timestamp")?.setValue(it.timestamp)
+            this.deviceReference?.child(index.toString())?.child("ax")?.setValue(it.ax)
+            this.deviceReference?.child(index.toString())?.child("ay")?.setValue(it.ay)
+            this.deviceReference?.child(index.toString())?.child("az")?.setValue(it.az)
+            this.deviceReference?.child(index.toString())?.child("gx")?.setValue(it.gx)
+            this.deviceReference?.child(index.toString())?.child("gy")?.setValue(it.gy)
+            this.deviceReference?.child(index.toString())?.child("gz")?.setValue(it.gz)
+            index++
+        }
+    }
+
     fun disableButtons(button: Button) {
         this.device1.isGone = true
         this.device1.isEnabled = false
@@ -145,6 +179,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         this.device_master.isEnabled = false
 
         button.isGone = false
+        this.chronometer.isVisible = true
     }
 
     fun showSensorParameters() {
@@ -154,6 +189,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         this.aceleXLabel.isVisible = true
         this.aceleYLabel.isVisible = true
         this.aceleZLabel.isVisible = true
+        this.currentTimestamp.isVisible = true
     }
 
     fun setAllSensors() {
@@ -162,24 +198,33 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         this.mGyroscope = mSensorManager!!.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
     }
 
-
-    // SENSOR IMPLEMENTATIOS
-    override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
-
-    }
+    override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
 
     override fun onSensorChanged(event: SensorEvent?) {
 
+        var currentTimestamp = System.currentTimeMillis()/1000
+        this.currentTimestamp.text = "Timestamp: " + currentTimestamp.toString()
+
+        val sensorData = SensorData(currentTimestamp.toString(),
+            this.eixoXLabel.text.toString(),
+            this.eixoYLabel.text.toString(),
+            this.eixoZLabel.text.toString(),
+            this.aceleXLabel.text.toString(),
+            this.aceleYLabel.text.toString(),
+            this.aceleZLabel.text.toString())
+
+        this.dataCollected.add(sensorData)
+
         if (event?.sensor!!.type == Sensor.TYPE_ACCELEROMETER) {
-            this.aceleXLabel.text = "AcelerometroX: " + event.values[0].toString()
-            this.aceleYLabel.text = "AcelerometroY: " + event.values[1].toString()
-            this.aceleZLabel.text = "AcelerometroZ: " + event.values[2].toString()
+            this.aceleXLabel.text = event.values[0].toString()
+            this.aceleYLabel.text = event.values[1].toString()
+            this.aceleZLabel.text = event.values[2].toString()
         }
 
         if (event?.sensor!!.type == Sensor.TYPE_GYROSCOPE) {
-            this.eixoXLabel.text = "GyroscopeX: " + event.values[0].toString()
-            this.eixoYLabel.text = "GyroscopeY: " + event.values[1].toString()
-            this.eixoZLabel.text = "GyroscopeZ: " + event.values[2].toString()
+            this.eixoXLabel.text = event.values[0].toString()
+            this.eixoYLabel.text = event.values[1].toString()
+            this.eixoZLabel.text = event.values[2].toString()
         }
     }
 }
