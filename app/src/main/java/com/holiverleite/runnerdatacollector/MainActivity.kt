@@ -29,23 +29,43 @@ import jxl.write.Label
 import jxl.write.WritableSheet
 import kotlinx.android.synthetic.main.activity_main.*
 import java.io.File
+ /*
 
+ COMO TESTAR
+
+ RODE EM UM EMULADOR  OU DEVICE REAL E SELECIONE MASTER
+
+ RODE EM UM EMULADOR OU DEVICE REAL E SELECIONE DEVICE1
+
+ COMECE A CAPTURA NO MASTER E PAUSE QUANDO QUISER
+
+ CLIQUE EM GERAR XLS E VEJA O PROCESSO ACONTECER
+
+  */
 
 class MainActivity : AppCompatActivity(), SensorEventListener {
 
+    //REFERENCIA QUE CONTROLA O INICIO OU TERMINO DE UMA CAPTURA
     private var commonReference: DatabaseReference? = null
-    private var deviceReference: DatabaseReference? = null
+
+    // REFERENCIA QUE INDICA Q O MASTER ESTA FAZENDO A ESCRITA E UPLOAD DO XLS
     private var masterUploading: DatabaseReference? = null
+
+    // REFERENCIA QUE INDICA Q O DEVICE1 ESTA FAZENDO A ESCRITA E UPLOAD DO XLS
     private var device1Uploading: DatabaseReference? = null
 
+    // CONTROLA ESTADO DO BOTAO
     private var currentState: String = "0"
 
     private var mSensorManager: SensorManager? = null
     private var mAccelerometer: Sensor? = null
     private var mGyroscope: Sensor? = null
 
+
+    //REFERENCIA DO ARQUIVO XLS NO FIREBASESTORAGE
     private val fileReference = FirebaseStorage.getInstance().reference.child("Runner.xls")
 
+    // DEFINE O TIPO DO DEVICE, OU MASTER OU DEVICE1 - PARA CONTROLAR COMPORTAMENTO DE TELAS
     private var typeDevice: Device? = null
 
     enum class Device {
@@ -67,7 +87,9 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         val az: String
     )
 
+    //DADOS COLETADOS DO GIRO - LOCAL
     var giroscopeDataCollected: MutableList<GiroscopeData> = mutableListOf()
+    //DADOS COLETADOS DO ACCELEROMETER - LOCAL
     var accelerometerDataCollected: MutableList<AccelerometerData> = mutableListOf()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -77,24 +99,27 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         this.setAllSensors()
 
         val database = FirebaseDatabase.getInstance()
+        //PEGA AS REFERENCIAS NO DATABASE
         this.commonReference = database.getReference("command")
         this.masterUploading = database.getReference("masterUploading")
         this.device1Uploading = database.getReference("device1Uploading")
 
+        //CONFIGURA CASO USUARIO ESCOLHAR O DEVICE ATUAL COMO MASTER
         this.device_master.setOnClickListener {
             typeDevice = Device.MASTER
-            this.deviceReference = database.getReference("deviceMaster")
 
             this.disableButtons(this.device_master)
             this.showSensorParameters()
             this.device_master.setBackgroundColor(Color.GREEN)
             this.start_button.isEnabled = true
             this.start_button.isVisible = true
+            //DEFINE O TEXTO DA BLOCKINGVIEW QUANDO O DEVICE1 ESTIVER FAZENDO UPLOAD
             blockingView.text = "Esperando DEVICE1"
         }
 
         this.generateXLSFile.setOnClickListener {
             progress?.visibility = View.VISIBLE
+            //AVISA QUE O MASTER TA COMECANDO O UPLOAD E O DEVICE1 NAO
             this.masterUploading?.setValue("1")
             this.device1Uploading?.setValue("0")
             updateXLS()
@@ -102,12 +127,14 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         }
 
         this.start_button.setOnClickListener {
+            //USUARIO CLICOU PARA COMECAR E SETA COMMON REFERENCE PRA 1, DISPARANDO A CAPTURA NO DEVICE1 TBEM
             if (this.currentState == "0") {
                 this.currentState = "1"
                 this.commonReference?.setValue("1")
                 start_button.text = "STOP"
                 this.generateXLSFile.isVisible = false
             } else {
+                //PAUSA CAPTURA NO DEVICE 1 E MASTER
                 this.currentState = "0"
                 this.commonReference?.setValue("0")
                 start_button.text = "RESTART"
@@ -117,11 +144,12 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
         this.device1.setOnClickListener {
             typeDevice = Device.DEVICE1
-            this.deviceReference = database.getReference("device1")
 
             this.disableButtons(this.device1)
             this.showSensorParameters()
             this.device1.setBackgroundColor(Color.GREEN)
+
+            //DEFINE TEXTO DO BLOCKINGVIEW PARA DEVICE1 QUANDO O MASTER TA FAZENDO UPLOAD
             blockingView.text = "Esperando MASTER"
         }
 
@@ -132,20 +160,20 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                 val value = dataSnapshot.getValue(String::class.java)
 
                 if (value == "1") {
-                    // Deleta dados do device do Firebase
-                    deviceReference?.removeValue()
-
+                    //TODOS COMECAM A CAPTURAR
                     chronometer.base = SystemClock.elapsedRealtime()
 
                     chronometer.start()
 
                     enableSensorListeners()
                 } else {
+                    //TODOS PARAM
                     chronometer.stop()
 
                     disableSensorListeners()
 
                     if(typeDevice == Device.DEVICE1) {
+                        //DEVICE1 MOSTRA A BLOCKINGVIEW ESPERANDO MASTER
                         blockingView.visibility = View.VISIBLE
                     }
                 }
@@ -173,6 +201,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
             override fun onDataChange(dataSnapshot: DataSnapshot) {
                 val upload = dataSnapshot.getValue(String::class.java)
+                // CASO MASTER ESTEJA FAZENDO UPLOAD (1) E O DEVICE ATUAL FOR O 1, MOSTRA A BLOCKINGVIEW
                 if (upload == "1" && typeDevice == Device.DEVICE1) {
                     blockingView.visibility = View.VISIBLE
                 }
@@ -192,15 +221,18 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
             override fun onDataChange(dataSnapshot: DataSnapshot) {
                 val upload = dataSnapshot.getValue(String::class.java)
+                // SE UPLOAD DO DEVICE1 TA ACONTECENDO E O MASTER É O DEVICE ATUAL, MOSTRE A BLOCKINGVIEW ESPERANDO PELO DEVICE1
                 if (upload == "1" && typeDevice == Device.MASTER) {
                     blockingView.visibility = View.VISIBLE
                 }
 
+                //SE O UPLOADING DO DEVICE1 ESTIVER ACONTECENDO E O DEVICE ATUAL É O DEVICE1, ESCONDE A BLOCKINGVIEW DELE E COMECA O UPDATE DO XLS
                 if(upload == "1" && typeDevice == Device.DEVICE1) {
                     blockingView.visibility = View.GONE
                     updateXLS()
                 }
 
+                // SE O UPLOADING DO DEVICE1 NAO ESTIVER ACONTECENDO, ESCONDA A BLOCKINGVIEW INDEPENDENTE DO DEVICE
                 if(upload == "0") {
                     blockingView.visibility = View.GONE
                 }
@@ -211,6 +243,10 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
     private fun updateXLS() {
         writeInXLS {
+            //BLOCO CHAMADO DEPOIS QUE UM UPLOAD DE XLS ACONTECE
+
+            //CASO O DEVICE ATUAL SEJA O MASTER, SINALIZA QUE O MASTERUPLOADING ACABOU E SETA O DEVICE1UPLOADING COMO INICIANDO
+            //SENAO O UPLOADING DO DEVICE1 ACABOU TBEM
             if(typeDevice == Device.MASTER) {
                 this.masterUploading?.setValue("0")
                 this.device1Uploading?.setValue("1")
@@ -221,34 +257,44 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     }
 
     private fun writeInXLS(finishXLS: () -> Unit) {
+        //CRIAR FILE TEMPORARIO
         val localFile = File.createTempFile("Runner", "xls")
 
+        //TENTA PEGAR O FILE REFERENCE (FILE NO FIREBASE) E ATRIBUI AO LOCAL FILE. NO SUCESSO  EXECUTA O BLOCO,
+        // SENAO ELE VAI CRIAR UM ARQUIVO E FAZER A PRIMEIRA CAPTURA
         fileReference.getFile(localFile).addOnSuccessListener {
             val workbook = Workbook.getWorkbook(localFile)
             val copyWorkbook = Workbook.createWorkbook(localFile, workbook)
             val beforeSheet = workbook.getSheet(workbook.numberOfSheets - 1)
 
             val copySheet = when {
+                //SE O ARQUIVO JA EXISTE E O DEVICE É O 1, ELE PRECISA PEGAR O ULTIMO SHEET PARA ESCREVER COM O MASTER
                 typeDevice == Device.DEVICE1 -> {
                     val numberSheet = workbook.numberOfSheets - 1
                     copyWorkbook.getSheet(numberSheet)
                 }
+                // SENAO ELE PARSEA O NOME DA ULTIMA SHEET E AUMENTA O INDICE PARA A NOVA SHEET
                 beforeSheet.name.contains("Coleta") -> {
                     val numberSheet = beforeSheet.name.replace("Coleta ", "").toInt()
                     copyWorkbook.createSheet("Coleta ${numberSheet + 1}", numberSheet)
                 }
                 else -> {
+                    // AQUI É QUANDO É A PRIMEIRA SHEET, ARQUIVO NOVO
                     val numberSheet = 0
                     copyWorkbook.createSheet("Coleta ${numberSheet + 1}", numberSheet)
                 }
             }
 
+            //ESCREVE TUDO NO OBJETO WORKBOOK
             writeCellsInSheet(copySheet)
 
+
+            //ESCREVE O XLS
             copyWorkbook.write()
             copyWorkbook.close()
             workbook.close()
 
+            //SALVA NO FIREBASE
             saveFileInFirebase(fileReference, localFile, finishXLS)
 
         }.addOnFailureListener {
@@ -280,6 +326,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         reference.putFile(Uri.fromFile(localFile)).addOnSuccessListener {
             progress?.visibility = View.GONE
             Toast.makeText(this, "A escrita terminou", Toast.LENGTH_LONG).show()
+            //CHAMA AQUELE BLOCO QUE INDICA QUE ACABOU O UPLOAD
             finishXLS.invoke()
         }
     }
