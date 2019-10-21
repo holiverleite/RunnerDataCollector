@@ -1,6 +1,7 @@
 package com.holiverleite.runnerdatacollector
 
 import android.content.Context
+import android.content.Intent
 import android.graphics.Color
 import android.hardware.Sensor
 import android.hardware.SensorEvent
@@ -10,9 +11,11 @@ import android.net.Uri
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.os.SystemClock
+import android.util.Log
 import android.view.View
 import android.widget.Button
 import android.widget.Toast
+import androidx.core.content.FileProvider
 import androidx.core.view.isGone
 import androidx.core.view.isVisible
 import com.google.firebase.database.DatabaseReference
@@ -29,19 +32,20 @@ import jxl.write.Label
 import jxl.write.WritableSheet
 import kotlinx.android.synthetic.main.activity_main.*
 import java.io.File
- /*
 
- COMO TESTAR
+/*
 
- RODE EM UM EMULADOR  OU DEVICE REAL E SELECIONE MASTER
+COMO TESTAR
 
- RODE EM UM EMULADOR OU DEVICE REAL E SELECIONE DEVICE1
+RODE EM UM EMULADOR  OU DEVICE REAL E SELECIONE MASTER
 
- COMECE A CAPTURA NO MASTER E PAUSE QUANDO QUISER
+RODE EM UM EMULADOR OU DEVICE REAL E SELECIONE DEVICE1
 
- CLIQUE EM GERAR XLS E VEJA O PROCESSO ACONTECER
+COMECE A CAPTURA NO MASTER E PAUSE QUANDO QUISER
 
-  */
+CLIQUE EM GERAR XLS E VEJA O PROCESSO ACONTECER
+
+ */
 
 class MainActivity : AppCompatActivity(), SensorEventListener {
 
@@ -131,6 +135,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             if (this.currentState == "0") {
                 this.currentState = "1"
                 this.commonReference?.setValue("1")
+                this.masterUploading?.setValue("0")
                 start_button.text = "STOP"
                 this.generateXLSFile.isVisible = false
             } else {
@@ -172,10 +177,6 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
                     disableSensorListeners()
 
-                    if(typeDevice == Device.DEVICE1) {
-                        //DEVICE1 MOSTRA A BLOCKINGVIEW ESPERANDO MASTER
-                        blockingView.visibility = View.VISIBLE
-                    }
                 }
             }
 
@@ -205,6 +206,9 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                 if (upload == "1" && typeDevice == Device.DEVICE1) {
                     blockingView.visibility = View.VISIBLE
                 }
+                if(upload == "0" && typeDevice == Device.DEVICE1){
+                    blockingView.visibility = View.GONE
+                }
             }
 
         })
@@ -227,14 +231,16 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                 }
 
                 //SE O UPLOADING DO DEVICE1 ESTIVER ACONTECENDO E O DEVICE ATUAL É O DEVICE1, ESCONDE A BLOCKINGVIEW DELE E COMECA O UPDATE DO XLS
-                if(upload == "1" && typeDevice == Device.DEVICE1) {
+                if (upload == "1" && typeDevice == Device.DEVICE1) {
                     blockingView.visibility = View.GONE
+                    progress.visibility = View.VISIBLE
                     updateXLS()
                 }
 
                 // SE O UPLOADING DO DEVICE1 NAO ESTIVER ACONTECENDO, ESCONDA A BLOCKINGVIEW INDEPENDENTE DO DEVICE
-                if(upload == "0") {
+                if (upload == "0") {
                     blockingView.visibility = View.GONE
+                    progress.visibility = View.GONE
                 }
             }
 
@@ -247,7 +253,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
             //CASO O DEVICE ATUAL SEJA O MASTER, SINALIZA QUE O MASTERUPLOADING ACABOU E SETA O DEVICE1UPLOADING COMO INICIANDO
             //SENAO O UPLOADING DO DEVICE1 ACABOU TBEM
-            if(typeDevice == Device.MASTER) {
+            if (typeDevice == Device.MASTER) {
                 this.masterUploading?.setValue("0")
                 this.device1Uploading?.setValue("1")
             } else {
@@ -258,7 +264,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
     private fun writeInXLS(finishXLS: () -> Unit) {
         //CRIAR FILE TEMPORARIO
-        val localFile = File.createTempFile("Runner", "xls")
+        val localFile = File.createTempFile("Runner", ".xls")
 
         //TENTA PEGAR O FILE REFERENCE (FILE NO FIREBASE) E ATRIBUI AO LOCAL FILE. NO SUCESSO  EXECUTA O BLOCO,
         // SENAO ELE VAI CRIAR UM ARQUIVO E FAZER A PRIMEIRA CAPTURA
@@ -328,6 +334,23 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             Toast.makeText(this, "A escrita terminou", Toast.LENGTH_LONG).show()
             //CHAMA AQUELE BLOCO QUE INDICA QUE ACABOU O UPLOAD
             finishXLS.invoke()
+
+            if (typeDevice == Device.DEVICE1) {
+                val emailIntent = Intent(Intent.ACTION_SEND)
+                emailIntent.type = "*/*"
+                val fileUri: Uri? = try {
+                    FileProvider.getUriForFile(
+                        this@MainActivity,
+                        "com.holiverleite.runnerdatacollector.CustomFileProvider",
+                        localFile)
+                } catch (e: IllegalArgumentException) {
+                    Log.e("File Selector",
+                        "The selected file can't be shared: $localFile")
+                    null
+                }
+                emailIntent.putExtra(Intent.EXTRA_STREAM, fileUri)
+                startActivity(Intent.createChooser(emailIntent, "Enviar arquivo..."))
+            }
         }
     }
 
